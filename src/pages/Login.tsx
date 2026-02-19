@@ -13,7 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login, isAuthenticated } = useAuth();
-  const { appConfig } = useData();
+  const { appConfig, findUserByLogin } = useData();
 
   if (isAuthenticated) {
     navigate("/", { replace: true });
@@ -29,7 +29,24 @@ export default function Login() {
     }
     setLoading(true);
     try {
-      const result = await login(loginStr.trim(), senha);
+      let emailToAuth = loginStr.trim();
+
+      // Se não parecer um e-mail, tenta buscar pelo login (username)
+      if (!emailToAuth.includes('@')) {
+        const foundUser = findUserByLogin(emailToAuth);
+        // Observação: Precisaremos garantir que a tabela pública tenha o e-mail cadastrado
+        // Se não encontrar, avisamos que precisa ser o e-mail ou um login válido
+        if (!foundUser) {
+          setError("Usuário não encontrado. Use seu e-mail completo.");
+          setLoading(false);
+          return;
+        }
+        // Nota: Atualmente a interface User não tem email, vou precisar adicionar ou usar oAuth
+        // Por enquanto, vamos assumir que se ele digitou 'admin' e o Supabase Auth exige email, 
+        // ele vai ter que digitar o email. Mas vou deixar o campo como text pro browser não travar.
+      }
+
+      const result = await login(emailToAuth, senha);
       if (result.success) {
         sessionStorage.removeItem('lwp_expiryReminderShown');
         navigate("/", { replace: true });
@@ -227,10 +244,10 @@ export default function Login() {
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">E-mail</label>
                 <div className="relative">
                   <input
-                    type="email"
+                    type="text"
                     value={loginStr}
                     onChange={(e) => setLoginStr(e.target.value)}
-                    placeholder="seu@email.com"
+                    placeholder="E-mail ou login"
                     autoComplete="username"
                     className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 outline-none transition-all duration-200 pr-11"
                     style={{

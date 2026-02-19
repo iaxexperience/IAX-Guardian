@@ -7,6 +7,7 @@ export interface User {
   id: string;
   nome: string;
   login: string;
+  email?: string;
   senhaHash: string;
   idSetor: string | null; // null for admin
   role: 'admin' | 'setor';
