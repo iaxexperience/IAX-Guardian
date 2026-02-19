@@ -20,7 +20,7 @@ export default function Login() {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!loginStr.trim() || !senha.trim()) {
@@ -28,16 +28,19 @@ export default function Login() {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      const result = login(loginStr.trim(), senha);
+    try {
+      const result = await login(loginStr.trim(), senha);
       if (result.success) {
         sessionStorage.removeItem('lwp_expiryReminderShown');
         navigate("/", { replace: true });
       } else {
         setError(result.error || "Credenciais inválidas.");
       }
+    } catch (err: any) {
+      setError(err.message || "Erro ao realizar login.");
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   return (

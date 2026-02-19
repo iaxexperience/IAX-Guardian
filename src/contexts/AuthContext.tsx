@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User } from '../types';
-import { useData } from './DataContext';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
     currentUser: User | null;
     isAuthenticated: boolean;
     isAdmin: boolean;
-    login: (loginStr: string, password: string) => { success: boolean; error?: string };
-    logout: () => void;
+    login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -18,88 +18,88 @@ export function useAuth(): AuthContextType {
     return ctx;
 }
 
-const SESSION_KEY = 'lwp_session';
-const SESSION_EXPIRY_MS = 8 * 60 * 60 * 1000; // 8 hours
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const { findUserByLogin, validatePassword, addLog, addAlerta, usuarios } = useData();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Restore session on mount
     useEffect(() => {
-        try {
-            const raw = localStorage.getItem(SESSION_KEY);
-            if (raw) {
-                const session = JSON.parse(raw);
-                if (session.expiresAt > Date.now() && session.userId) {
-                    const user = usuarios.find(u => u.id === session.userId);
-                    if (user && user.status === 'ativo') {
-                        setCurrentUser(user);
-                    } else {
-                        localStorage.removeItem(SESSION_KEY);
-                    }
-                } else {
-                    localStorage.removeItem(SESSION_KEY);
-                }
+        // Clear potential legacy session
+        localStorage.removeItem('lwp_session');
+
+        // Initial session check
+        const initAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                await fetchUserData(session.user.id);
             }
-        } catch {
-            localStorage.removeItem(SESSION_KEY);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+            setLoading(false);
+        };
+
+        initAuth();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session?.user) {
+                await fetchUserData(session.user.id);
+            } else {
+                setCurrentUser(null);
+            }
+            setLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    // Keep currentUser synced with usuarios changes (e.g., name change)
-    useEffect(() => {
-        if (currentUser) {
-            const updated = usuarios.find(u => u.id === currentUser.id);
-            if (updated && updated !== currentUser) {
-                setCurrentUser(updated);
+    const fetchUserData = async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from('usuarios')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (data && !error) {
+                setCurrentUser({
+                    id: data.id,
+                    nome: data.nome,
+                    login: data.login,
+                    senhaHash: 'auth_managed',
+                    idSetor: data.id_setor,
+                    role: data.role as 'admin' | 'setor',
+                    status: data.status === 'active' ? 'ativo' : 'inativo',
+                    criadoEm: data.criado_em,
+                });
             }
+        } catch (err) {
+            console.error('Error fetching user data:', err);
         }
-    }, [usuarios, currentUser]);
+    };
 
-    const login = useCallback((loginStr: string, password: string): { success: boolean; error?: string } => {
-        const user = findUserByLogin(loginStr);
-        if (!user) {
-            return { success: false, error: 'Usuário não encontrado.' };
-        }
-        if (user.status === 'inativo') {
-            addLog(user.id, user.nome, 'Login bloqueado', 'Usuário inativo tentou logar');
-            addAlerta({
-                tipo: 'geral',
-                urgencia: 'alta',
-                mensagem: `Tentativa de login bloqueada: ${user.nome} (Status: Inativo)`,
-                empresa: 'Sistema de Segurança'
+    const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             });
-            return { success: false, error: 'Usuário inativo. Entre em contato com o administrador.' };
-        }
-        if (!validatePassword(user, password)) {
-            addLog(user.id, user.nome, 'Login falhou', 'Senha incorreta');
-            addAlerta({
-                tipo: 'geral',
-                urgencia: 'media',
-                mensagem: `Falha de login para usuário: ${user.login}`,
-                empresa: 'Sistema de Segurança'
-            });
-            return { success: false, error: 'Senha incorreta.' };
-        }
-        // Success
-        setCurrentUser(user);
-        localStorage.setItem(SESSION_KEY, JSON.stringify({
-            userId: user.id,
-            expiresAt: Date.now() + SESSION_EXPIRY_MS,
-        }));
-        addLog(user.id, user.nome, 'Login realizado', `IP: navegador local`);
-        return { success: true };
-    }, [findUserByLogin, validatePassword, addLog]);
 
-    const logout = useCallback(() => {
-        if (currentUser) {
-            addLog(currentUser.id, currentUser.nome, 'Logout', 'Sessão encerrada');
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (err: any) {
+            return { success: false, error: err.message || 'Erro ao realizar login.' };
         }
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
         setCurrentUser(null);
-        localStorage.removeItem(SESSION_KEY);
-    }, [currentUser, addLog]);
+    };
+
+    if (loading) {
+        return <div className="flex h-screen items-center justify-center">Carregando...</div>;
+    }
 
     return (
         <AuthContext.Provider value={{
@@ -113,3 +113,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         </AuthContext.Provider>
     );
 }
+
