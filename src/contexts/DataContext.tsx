@@ -85,6 +85,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 id: u.id,
                 nome: u.nome,
                 login: u.login,
+                email: u.email,
                 senhaHash: 'auth_managed',
                 idSetor: u.id_setor,
                 role: u.role as 'admin' | 'setor',
@@ -190,6 +191,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         const { data: dbData, error } = await supabase.from('usuarios').insert({
             nome: data.nome,
             login: data.login,
+            email: data.email,
             id_setor: data.idSetor,
             role: data.role,
             status: data.status === 'ativo' ? 'active' : 'inactive'
@@ -200,6 +202,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 id: dbData.id,
                 nome: dbData.nome,
                 login: dbData.login,
+                email: dbData.email,
                 senhaHash: 'auth_managed',
                 idSetor: dbData.id_setor,
                 role: dbData.role as any,

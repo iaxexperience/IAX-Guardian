@@ -34,16 +34,18 @@ export default function Login() {
       // Se não parecer um e-mail, tenta buscar pelo login (username)
       if (!emailToAuth.includes('@')) {
         const foundUser = findUserByLogin(emailToAuth);
-        // Observação: Precisaremos garantir que a tabela pública tenha o e-mail cadastrado
-        // Se não encontrar, avisamos que precisa ser o e-mail ou um login válido
         if (!foundUser) {
-          setError("Usuário não encontrado. Use seu e-mail completo.");
+          setError("Login não encontrado. Verifique se o SQL foi executado.");
           setLoading(false);
           return;
         }
-        // Nota: Atualmente a interface User não tem email, vou precisar adicionar ou usar oAuth
-        // Por enquanto, vamos assumir que se ele digitou 'admin' e o Supabase Auth exige email, 
-        // ele vai ter que digitar o email. Mas vou deixar o campo como text pro browser não travar.
+        if (foundUser.email) {
+          emailToAuth = foundUser.email;
+        } else {
+          setError(`O usuário '${emailToAuth}' existe, mas não tem um e-mail vinculado no banco. Rode o SQL.`);
+          setLoading(false);
+          return;
+        }
       }
 
       const result = await login(emailToAuth, senha);

@@ -63,12 +63,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     id: data.id,
                     nome: data.nome,
                     login: data.login,
+                    email: data.email,
                     senhaHash: 'auth_managed',
                     idSetor: data.id_setor,
                     role: data.role as 'admin' | 'setor',
                     status: data.status === 'active' ? 'ativo' : 'inativo',
                     criadoEm: data.criado_em,
                 });
+            } else if (error && error.code === 'PGRST116') { // PGRST116: JSON object requested, but no rows returned
+                // If profile missing, create one automatically
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: newUser, error: insertError } = await supabase.from('usuarios').insert({
+                        id: user.id,
+                        nome: user.user_metadata?.nome || user.email?.split('@')[0] || 'Novo Usuário',
+                        login: user.user_metadata?.login || user.email?.split('@')[0] || 'user',
+                        email: user.email,
+                        role: 'admin', // Default first user to admin
+                        status: 'active',
+                        senha_hash: 'auth_managed'
+                    }).select().single();
+
+                    if (newUser && !insertError) {
+                        setCurrentUser({
+                            id: newUser.id,
+                            nome: newUser.nome,
+                            login: newUser.login,
+                            email: newUser.email,
+                            senhaHash: 'auth_managed',
+                            idSetor: newUser.id_setor,
+                            role: newUser.role as 'admin' | 'setor',
+                            status: newUser.status === 'active' ? 'ativo' : 'inativo',
+                            criadoEm: newUser.criado_em,
+                        });
+                    }
+                }
             }
         } catch (err) {
             console.error('Error fetching user data:', err);
