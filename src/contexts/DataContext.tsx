@@ -11,6 +11,9 @@ interface DataContextType {
     getSetorNome: (id: string) => string;
     // Usuarios
     usuarios: User[];
+    addUsuario: (data: Omit<User, 'id' | 'senhaHash' | 'criadoEm'> & { senha: string }) => Promise<User | null>;
+    updateUsuario: (id: string, data: Partial<Omit<User, 'id' | 'senhaHash' | 'criadoEm'>> & { senha?: string }) => Promise<boolean>;
+    toggleUsuarioStatus: (id: string) => Promise<boolean>;
     findUserByLogin: (login: string) => User | undefined;
     // Contratos
     contratos: Contrato[];
@@ -183,6 +186,63 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }, [setores]);
 
     // --- Usuarios ---
+    const addUsuario = useCallback(async (data: Omit<User, 'id' | 'senhaHash' | 'criadoEm'> & { senha: string }): Promise<User | null> => {
+        const { data: dbData, error } = await supabase.from('usuarios').insert({
+            nome: data.nome,
+            login: data.login,
+            id_setor: data.idSetor,
+            role: data.role,
+            status: data.status === 'ativo' ? 'active' : 'inactive'
+        }).select().single();
+
+        if (dbData && !error) {
+            const novo: User = {
+                id: dbData.id,
+                nome: dbData.nome,
+                login: dbData.login,
+                senhaHash: 'auth_managed',
+                idSetor: dbData.id_setor,
+                role: dbData.role as any,
+                status: dbData.status === 'active' ? 'ativo' : 'inativo',
+                criadoEm: dbData.criado_em,
+            };
+            setUsuarios(prev => [...prev, novo]);
+            return novo;
+        }
+        return null;
+    }, []);
+
+    const updateUsuario = useCallback(async (id: string, data: Partial<Omit<User, 'id' | 'senhaHash' | 'criadoEm'>> & { senha?: string }): Promise<boolean> => {
+        const dbUpdate: any = {};
+        if (data.nome) dbUpdate.nome = data.nome;
+        if (data.login) dbUpdate.login = data.login;
+        if (data.idSetor !== undefined) dbUpdate.id_setor = data.idSetor;
+        if (data.role) dbUpdate.role = data.role;
+        if (data.status) dbUpdate.status = data.status === 'ativo' ? 'active' : 'inactive';
+
+        const { error } = await supabase.from('usuarios').update(dbUpdate).eq('id', id);
+        if (!error) {
+            setUsuarios(prev => prev.map(u => u.id === id ? { ...u, ...data } : u));
+            return true;
+        }
+        return false;
+    }, []);
+
+    const toggleUsuarioStatus = useCallback(async (id: string): Promise<boolean> => {
+        const user = usuarios.find(u => u.id === id);
+        if (!user) return false;
+        const newStatus = user.status === 'ativo' ? 'inativo' : 'ativo';
+        const { error } = await supabase.from('usuarios').update({
+            status: newStatus === 'ativo' ? 'active' : 'inactive'
+        }).eq('id', id);
+
+        if (!error) {
+            setUsuarios(prev => prev.map(u => u.id === id ? { ...u, status: newStatus } : u));
+            return true;
+        }
+        return false;
+    }, [usuarios]);
+
     const findUserByLogin = useCallback((login: string): User | undefined => {
         return usuarios.find(u => u.login.toLowerCase() === login.toLowerCase());
     }, [usuarios]);
@@ -372,7 +432,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return (
         <DataContext.Provider value={{
             setores, addSetor, updateSetor, deleteSetor, getSetorNome,
-            usuarios, findUserByLogin,
+            usuarios, addUsuario, updateUsuario, toggleUsuarioStatus, findUserByLogin,
             contratos: contratosAtivos, addContrato, updateContrato, deleteContrato, contratosExcluidos,
             alertas, addAlerta, marcarAlertaLido, deleteAlerta, contratosVencendo,
             appConfig, setAppConfig,

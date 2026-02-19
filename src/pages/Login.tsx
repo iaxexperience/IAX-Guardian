@@ -202,8 +202,8 @@ export default function Login() {
               <h2 className="text-[22px] font-bold text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
                 Bem-vindo.
               </h2>
-              <p className="text-sm text-gray-400 mt-1" style={{ fontFamily: "'Inter', sans-serif" }}>
-                Faça login para acessar o sistema
+              <p className="text-sm text-muted-foreground mt-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+                Use seu e-mail cadastrado no Supabase
               </p>
             </div>
 
@@ -224,13 +224,13 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-5" style={{ fontFamily: "'Inter', sans-serif" }}>
               {/* Login field */}
               <div className="space-y-2">
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Login</label>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">E-mail</label>
                 <div className="relative">
                   <input
-                    type="text"
+                    type="email"
                     value={loginStr}
                     onChange={(e) => setLoginStr(e.target.value)}
-                    placeholder="seu.login"
+                    placeholder="seu@email.com"
                     autoComplete="username"
                     className="w-full px-4 py-3 rounded-xl text-sm text-gray-900 placeholder:text-gray-300 outline-none transition-all duration-200 pr-11"
                     style={{
