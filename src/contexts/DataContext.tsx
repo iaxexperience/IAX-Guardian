@@ -194,7 +194,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             email: data.email,
             id_setor: data.idSetor,
             role: data.role,
-            status: data.status === 'ativo' ? 'active' : 'inactive'
+            status: data.status === 'ativo' ? 'active' : 'inactive',
+            senha_hash: 'auth_managed'
         }).select().single();
 
         if (dbData && !error) {

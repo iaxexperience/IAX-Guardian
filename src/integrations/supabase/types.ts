@@ -274,6 +274,7 @@ export type Database = {
       usuarios: {
         Row: {
           criado_em: string
+          email: string | null
           id: string
           id_setor: string | null
           login: string
@@ -284,6 +285,7 @@ export type Database = {
         }
         Insert: {
           criado_em?: string
+          email?: string | null
           id?: string
           id_setor?: string | null
           login: string
@@ -294,6 +296,7 @@ export type Database = {
         }
         Update: {
           criado_em?: string
+          email?: string | null
           id?: string
           id_setor?: string | null
           login?: string

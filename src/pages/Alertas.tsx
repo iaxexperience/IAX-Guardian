@@ -85,12 +85,12 @@ export default function Alertas() {
     return matchesSearch && matchesUrgencia && matchesTipo;
   });
 
-  const handleMarkRead = (id: string) => {
+  const handleMarkRead = async (id: string) => {
     if (id.startsWith('dyn_')) {
       // For dynamic alerts, persist them first
       const dynAlert = dynamicAlerts.find(a => a.id === id);
       if (dynAlert) {
-        const created = addAlerta({
+        const created = await addAlerta({
           tipo: dynAlert.tipo,
           mensagem: dynAlert.mensagem,
           idContrato: dynAlert.idContrato,
@@ -98,7 +98,7 @@ export default function Alertas() {
           empresa: dynAlert.empresa,
           urgencia: dynAlert.urgencia,
         });
-        marcarAlertaLido(created.id);
+        if (created) marcarAlertaLido(created.id);
       }
     } else {
       marcarAlertaLido(id);
